@@ -8,13 +8,14 @@ function add_conv_block(model,in_ch,out_ch)
 end
 
 function Discriminator()
-    model = Chain(Conv((4,4), 3=>64,pad = (1, 1), stride=(2,2)),x->leakyrelu.(x),
+    model = Chain(Conv((4,4), 6=>64,pad = (1, 1), stride=(2,2)),x->leakyrelu.(x),
                   ConvBlock(64,128),
                   ConvBlock(128,256),
                   ConvBlock(256,512),
                   ConvBlock(512,512),
                   ConvBlock(512,512),
                   ConvBlock(512,512),
-                  Conv((4,4), 512=>1,pad = (1, 1), stride=(2,2)))
+                  Conv((4,4), 512=>1,pad = (1, 1), stride=(2,2)),
+                  x->σ.(x))
     return model 
 end

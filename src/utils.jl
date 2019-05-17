@@ -4,12 +4,14 @@ function load_image(filename)
 end
 
 function load_dataset(path,imsize)
-   imgs = []
-   for r in readdir(path)
+    imgsA = []
+    imgsB = []
+    for r in readdir(path)
         img_path = string(path,r)
-        push!(imgs,load_image(img_path))
+        push!(imgsA,load_image(img_path)[:,:,1:256])
+        push!(imgsB,load_image(img_path)[:,:,257:end])
     end
-    reshape(hcat(imgs...),imsize,imsize,3,length(imgs))
+    reshape(hcat(imgsA...),imsize,imsize,3,length(imgsA)),reshape(hcat(imgsB...),imsize,imsize,3,length(imgsB))
 end
 
 function make_minibatch(X, idxs,size=256)
