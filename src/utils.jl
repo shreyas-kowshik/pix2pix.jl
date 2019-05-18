@@ -1,22 +1,15 @@
-# TODO : Fix `load_dataset` function
-
 function load_image(filename)
     img = load(filename)
     img = Float64.(channelview(img))
 end
 
 function load_dataset(path,imsize)
-    i = 1
     imgsA = []
     imgsB = []
     for r in readdir(path)
-        if i > 10
-          break
-        end
         img_path = string(path,r)
         push!(imgsA,load_image(img_path)[:,:,1:256])
         push!(imgsB,load_image(img_path)[:,:,257:end])
-        i+=1
     end
     reshape(hcat(imgsA...),imsize,imsize,3,length(imgsA)),reshape(hcat(imgsB...),imsize,imsize,3,length(imgsB))
 end

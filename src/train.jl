@@ -4,18 +4,20 @@ using Base.Iterators: partition
 using Random
 using Statistics
 using Flux.Tracker:update!
+using BSON: @save
+using Flux:testmode!
 
 include("utils.jl")
 include("generator.jl")
 include("discriminator.jl")
 
 # Hyperparameters
-NUM_EPOCHS = 100
+NUM_EPOCHS = 200
 BATCH_SIZE = 1
-dis_lr = 0.0001f0
-gen_lr = 0.0001f0
-λ = 1.0 # Cycle loss weight for dommain A
-NUM_EXAMPLES = 2 # Temporary for experimentation
+dis_lr = 0.0002f0
+gen_lr = 0.0002f0
+λ = 10.0 # Cycle loss weight for dommain A
+NUM_EXAMPLES = 1 # Temporary for experimentation
 VERBOSE_FREQUENCY = 2 # Verbose output after every 2 epochs
 
 # Data Loading
@@ -73,11 +75,12 @@ function train_step(X_A,X_B)
 
     loss_G = loss_adv + λ*loss_L1
 
-    # Optimise Discriminator #
+    # Optimise #
     gs = Tracker.gradient(() -> loss_D,params(dis))
-    gs_ = Tracker.gradient(() -> loss_G,params(gen))
-    update!(opt_disc,params(dis),gs)    
-    update!(opt_gen,params(gen),gs_)
+    update!(opt_disc,params(dis),gs)  
+
+    gs = Tracker.gradient(() -> loss_G,params(gen))  
+    update!(opt_gen,params(gen),gs)
 
     return loss_D,loss_G
 end
@@ -93,34 +96,40 @@ function train()
                 println("DisA Loss : $d_loss")
             end
         end
+
+        @save "../weights/gen.bson" gen
+        @save "../weights/dis.bson" dis
     end
 end
 
-train()
+# train()
 ### SAMPLING ###
-# function sampleA2B(X_A_test)
-#     """
-#     Samples new images in domain B
-#     X_A_test : N x C x H x W array - Test images in domain A
-#     """
-#     testmode!(gen_A)
-#     X_A_test = norm(X_A_test)
-#     X_B_generated = cpu(denorm(gen_A(X_A_test |> gpu)).data)
-#     testmode!(gen_A,false)
-#     imgs = []
-#     s = size(X_B_generated)
-#     for i in size(X_B_generated)[end]
-#        push!(imgs,colorview(RGB,reshape(X_B_generated[:,:,:,i],3,s[1],s[2])))
-#     end
-#     imgs
-# end
+function sampleA2B(X_A_test)
+    """
+    Samples new images in domain B
+    X_A_test : N x C x H x W array - Test images in domain A
+    """
+    testmode!(gen)
+    X_A_test = norm(X_A_test)
+    X_B_generated = cpu(denorm(gen_A(X_A_test |> gpu)).data)
+    testmode!(gen,false)
+    imgs = []
+    s = size(X_B_generated)
+    for i in size(X_B_generated)[end]
+       push!(imgs,colorview(RGB,reshape(X_B_generated[:,:,:,i],3,s[1],s[2])))
+    end
+    imgs
+end
 
-# function test()
-#    # load test data
-#    dataA = load_dataset("../data/trainA/",256)[:,:,:,1:2] |> gpu
-#    out = sampleA2B(dataA)
-#    println(length(out))
-#    for (i,img) in enumerate(out)
-#         save("../sample/A_$i.png",img)
-#    end
-# end
+function test()
+   # load test data
+   dataA = load_dataset("../data/train/",256)[:,:,:,1:2] |> gpu
+   out = sampleA2B(dataA)
+
+   @load "../weights/gen.bson" gen
+   for (i,img) in enumerate(out)
+        save("../sample/A_$i.png",img)
+   end
+end
+
+test()
