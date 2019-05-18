@@ -6,6 +6,7 @@ using Statistics
 using Flux.Tracker:update!
 using BSON: @save
 using Flux:testmode!
+using Distributions:Normal
 
 include("utils.jl")
 include("generator.jl")
@@ -17,7 +18,7 @@ BATCH_SIZE = 1
 dis_lr = 0.0002f0
 gen_lr = 0.0002f0
 λ = 10.0 # Cycle loss weight for dommain A
-NUM_EXAMPLES = 1 # Temporary for experimentation
+NUM_EXAMPLES = 2 # Temporary for experimentation
 VERBOSE_FREQUENCY = 2 # Verbose output after every 2 epochs
 
 # Data Loading
@@ -36,6 +37,7 @@ println("Loaded Data")
 # Define Optimizers
 opt_gen = ADAM(gen_lr,(0.5,0.999))
 opt_disc = ADAM(dis_lr,(0.5,0.999))
+# opt_disc = Descent(dis_lr)
 
 # Define models
 gen = UNet() |> gpu # Generator For A->B
@@ -59,10 +61,14 @@ function train_step(X_A,X_B)
     fake_AB = cat(fake_B,X_A,dims=3) |> gpu
     fake_prob = drop_first_two(dis(fake_AB))
     loss_D_fake = bce(fake_prob,fake_labels)
+    println(fake_prob)
+    println(fake_labels)
 
     real_AB =  cat(X_B,X_A,dims=3) |> gpu
     real_prob = drop_first_two(dis(real_AB))
     loss_D_real = bce(real_prob,real_labels)
+    println(real_prob)
+    println(real_labels)
     
     loss_D = 0.5 * (loss_D_real + loss_D_fake)
     

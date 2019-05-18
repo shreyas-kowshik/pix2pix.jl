@@ -1,6 +1,11 @@
+# weight initialization
+function random_normal(shape...)
+    return map(Float32,rand(Normal(0,0.02),shape...))
+end
+
 UNetConvBlock(in_chs, out_chs, kernel = (3, 3)) =
-    Chain(Conv(kernel, in_chs=>out_chs,pad = (1, 1)) ,BatchNormWrap(out_chs)...,x->leakyrelu.(x),
-          Conv(kernel, out_chs=>out_chs,pad = (1, 1)),BatchNormWrap(out_chs)...,x->leakyrelu.(x))
+    Chain(Conv(kernel, in_chs=>out_chs,pad = (1, 1);init=random_normal) ,BatchNormWrap(out_chs)...,x->leakyrelu.(x),
+          Conv(kernel, out_chs=>out_chs,pad = (1, 1);init=random_normal),BatchNormWrap(out_chs)...,x->leakyrelu.(x))
 
 struct UNetUpBlock
     upsample
@@ -10,9 +15,9 @@ end
 @treelike UNetUpBlock
 
 UNetUpBlock(in_chs::Int, out_chs::Int, kernel = (3, 3)) =
-    UNetUpBlock(ConvTranspose((2, 2), in_chs=>out_chs, stride=(2, 2)),
-                Chain(Conv(kernel, in_chs=>out_chs,pad = (1, 1)),BatchNormWrap(out_chs)...,x->leakyrelu.(x),
-                Conv(kernel, out_chs=>out_chs,pad = (1, 1)),BatchNormWrap(out_chs)...,x->leakyrelu.(x)))
+    UNetUpBlock(ConvTranspose((2, 2), in_chs=>out_chs, stride=(2, 2);init=random_normal),
+                Chain(Conv(kernel, in_chs=>out_chs,pad = (1, 1);init=random_normal),BatchNormWrap(out_chs)...,x->leakyrelu.(x),
+                Conv(kernel, out_chs=>out_chs,pad = (1, 1);init=random_normal),BatchNormWrap(out_chs)...,x->leakyrelu.(x)))
 
 function (u::UNetUpBlock)(x, bridge)
     x = u.upsample(x)
@@ -33,7 +38,7 @@ function UNet()
     conv_blocks = (UNetConvBlock(3, 64), UNetConvBlock(64, 128), UNetConvBlock(128, 256),
                    UNetConvBlock(256, 512), UNetConvBlock(512, 1024))
     up_blocks = (UNetUpBlock(1024, 512), UNetUpBlock(512, 256), UNetUpBlock(256, 128),
-                 UNetUpBlock(128, 64), Conv((1, 1), 64=>3))
+                 UNetUpBlock(128, 64), Conv((1, 1), 64=>3;init=random_normal))
     UNet(pool_layer, conv_blocks, up_blocks)
 end
 
