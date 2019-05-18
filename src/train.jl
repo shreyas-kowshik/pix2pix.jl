@@ -85,8 +85,16 @@ function train_step(X_A,X_B)
     return loss_D,loss_G
 end
 
+function save_weights()
+    gen_weights = Tracker.data.(params(cpu(gen)))
+    dis_weights = Tracker.data.(params(cpu(dis)))
+    @save "../weights/gen.bson" gen_weights
+    @save "../weights/dis.bson" dis_weights
+end
+
 function train()
     println("Training...")
+
     for epoch in 1:NUM_EPOCHS
         println("-----------Epoch : $epoch-----------")
         for i in 1:length(train_A)
@@ -96,40 +104,9 @@ function train()
                 println("DisA Loss : $d_loss")
             end
         end
-
-        @save "../weights/gen.bson" gen
-        @save "../weights/dis.bson" dis
     end
+
+    save_weights()
 end
 
-# train()
-### SAMPLING ###
-function sampleA2B(X_A_test)
-    """
-    Samples new images in domain B
-    X_A_test : N x C x H x W array - Test images in domain A
-    """
-    testmode!(gen)
-    X_A_test = norm(X_A_test)
-    X_B_generated = cpu(denorm(gen_A(X_A_test |> gpu)).data)
-    testmode!(gen,false)
-    imgs = []
-    s = size(X_B_generated)
-    for i in size(X_B_generated)[end]
-       push!(imgs,colorview(RGB,reshape(X_B_generated[:,:,:,i],3,s[1],s[2])))
-    end
-    imgs
-end
-
-function test()
-   # load test data
-   dataA = load_dataset("../data/train/",256)[:,:,:,1:2] |> gpu
-   out = sampleA2B(dataA)
-
-   @load "../weights/gen.bson" gen
-   for (i,img) in enumerate(out)
-        save("../sample/A_$i.png",img)
-   end
-end
-
-test()
+train()

@@ -4,16 +4,14 @@ using Base.Iterators: partition
 using Random
 using Statistics
 using Flux.Tracker:update!
-using BSON: @save
+using BSON: @save,@load
 using Flux:testmode!
 
 include("utils.jl")
 include("generator.jl")
 include("discriminator.jl")
 
-gen = UNet() |> gpu
-
-function sampleA2B(X_A_test)
+function sampleA2B(X_A_test,gen)
     """
     Samples new images in domain B
     X_A_test : N x C x H x W array - Test images in domain A
@@ -31,13 +29,25 @@ function sampleA2B(X_A_test)
 end
 
 function test()
+   gen = UNet()
+   println("Loaded Generator")
+
+   println(gen)
+
    # load test data
    dataA,_ = load_dataset("../data/train/",256)
    dataA = dataA[:,:,:,1] |> gpu
    dataA = reshape(dataA,256,256,3,1)
-   out = sampleA2B(dataA)
 
-   @load "../weights/gen.bson" gen
+   weights = Tracker.data.(params(gen));
+
+   # @load "../weights/gen.bson" gen
+   @load "../weights/gen.bson" gen_weights
+
+   Flux.loadparams!(gen,weights)
+   gen = gen |> gpu
+   out = sampleA2B(dataA,gen)
+
    for (i,img) in enumerate(out)
         save("../sample/A_$i.png",img)
    end
