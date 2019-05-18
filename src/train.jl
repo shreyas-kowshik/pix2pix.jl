@@ -14,7 +14,7 @@ NUM_EPOCHS = 100
 BATCH_SIZE = 1
 dis_lr = 0.0001f0
 gen_lr = 0.0001f0
-λ = 10.0 # Cycle loss weight for dommain A
+λ = 1.0 # Cycle loss weight for dommain A
 NUM_EXAMPLES = 2 # Temporary for experimentation
 VERBOSE_FREQUENCY = 2 # Verbose output after every 2 epochs
 
@@ -66,20 +66,18 @@ function train_step(X_A,X_B)
     
     ### Generator Update ###
     fake_AB2 = cat(fake_B,X_A,dims=3) |> gpu
-    fake_prob = drop_first_two(dis(fake_AB2))
-    loss_adv = bce(fake_prob,real_labels)
+    fake_prob2 = drop_first_two(dis(fake_AB2))
+    loss_adv = bce(fake_prob2,real_labels)
 
-    loss_L1 = mean(abs.(fake_B .- X_B))
+    loss_L1 = mean(abs.(fake_B .- X_B) |> gpu)
 
     loss_G = loss_adv + λ*loss_L1
 
     # Optimise Discriminator #
     gs = Tracker.gradient(() -> loss_D,params(dis))
-    update!(opt_disc,params(dis),gs)
-
-    # Optimise Generator #
-    gs = Tracker.gradient(() -> loss_G,params(gen))
-    update!(opt_gen,params(gen),gs)
+    gs_ = Tracker.gradient(() -> loss_G,params(gen))
+    update!(opt_disc,params(dis),gs)    
+    update!(opt_gen,params(gen),gs_)
 
     return loss_D,loss_G
 end
