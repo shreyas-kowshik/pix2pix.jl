@@ -33,8 +33,6 @@ function test()
    gen = UNet()
    println("Loaded Generator")
 
-   println(gen)
-
    # load test data
    dataA,_ = load_dataset("../data/train/",256)
    dataA = dataA[:,:,:,1] |> gpu

@@ -11,7 +11,7 @@ function load_dataset(path,imsize)
         push!(imgsA,load_image(img_path)[:,:,1:256])
         push!(imgsB,load_image(img_path)[:,:,257:end])
     end
-    reshape(hcat(imgsA...),imsize,imsize,3,length(imgsA)),reshape(hcat(imgsB...),imsize,imsize,3,length(imgsB))
+    return reshape(cat(imgsA...,dims=4),imsize,imsize,3,length(imgsA)),reshape(cat(imgsB...,dims=4),imsize,imsize,3,length(imgsB))
 end
 
 function make_minibatch(X, idxs,size=256)
@@ -56,6 +56,18 @@ function squeeze(x)
 end
 
 drop_first_two(x) = dropdims(x,dims=(1,2))
+
+function save_to_image(var,path="../sample/")
+  """
+  Takes in a variable on the gpu and saves it to an image in a directory
+  """
+  cpu_out = cpu(denorm(var))
+  println(maximum(cpu_out))
+  println(minimum(cpu_out))
+  s = size(cpu_out)
+  img = colorview(RGB,reshape(cpu_out[:,:,:,1],3,s[1],s[2]))
+  save("../sample/test_1.png",img)
+end
 
 # BatchNorm Wrapper
 function BatchNormWrap(out_ch)

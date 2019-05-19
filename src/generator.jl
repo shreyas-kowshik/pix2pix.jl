@@ -7,6 +7,10 @@ UNetConvBlock(in_chs, out_chs, kernel = (3, 3)) =
     Chain(Conv(kernel, in_chs=>out_chs,pad = (1, 1);init=random_normal) ,BatchNormWrap(out_chs)...,x->leakyrelu.(x),
           Conv(kernel, out_chs=>out_chs,pad = (1, 1);init=random_normal),BatchNormWrap(out_chs)...,x->leakyrelu.(x))
 
+ConvDown(in_chs,out_chs,kernel = (3,3)) = Chain(Conv(kernel,in_chs=>out_chs,pad=(1,1),stride=(2,2);init=random_normal),
+                                                BatchNormWrap(out_chs)...,
+                                                x->leakyrelu.(x))
+
 struct UNetUpBlock
     upsample
     conv_layer
@@ -46,7 +50,7 @@ function (u::UNet)(x)
     outputs = Vector(undef, 5)
     outputs[1] = u.conv_blocks[1](x)
     for i in 2:5
-        pool_x = u.pool_layer(outputs[i - 1])
+        pool_x = 
         outputs[i] = u.conv_blocks[i](pool_x)
     end
     up_x = outputs[end]
