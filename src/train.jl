@@ -17,7 +17,7 @@ NUM_EPOCHS = 200
 BATCH_SIZE = 1
 dis_lr = 0.0002f0
 gen_lr = 0.0002f0
-λ = 10.0 # Cycle loss weight for dommain A
+λ = 100.0 # L1 reconstruction Loss Weight
 NUM_EXAMPLES = 2 # Temporary for experimentation
 VERBOSE_FREQUENCY = 2 # Verbose output after every 2 epochs
 
@@ -55,20 +55,21 @@ function train_step(X_A,X_B)
     fake_labels = zeros(1,BATCH_SIZE) |> gpu
     
     ### Forward Propagation ###
-    fake_B = gen(X_B)
+    # Domain A->B
+    fake_B = gen(X_A)
 
     ### Discriminator Update ###
     fake_AB = cat(fake_B,X_A,dims=3) |> gpu
     fake_prob = drop_first_two(dis(fake_AB))
     loss_D_fake = bce(fake_prob,fake_labels)
-    println(fake_prob)
-    println(fake_labels)
+    # println(fake_prob)
+    # println(fake_labels)
 
     real_AB =  cat(X_B,X_A,dims=3) |> gpu
     real_prob = drop_first_two(dis(real_AB))
     loss_D_real = bce(real_prob,real_labels)
-    println(real_prob)
-    println(real_labels)
+    # println(real_prob)
+    # println(real_labels)
     
     loss_D = 0.5 * (loss_D_real + loss_D_fake)
     
