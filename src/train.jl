@@ -17,7 +17,7 @@ NUM_EPOCHS = 50
 BATCH_SIZE = 1
 dis_lr = 0.0002f0
 gen_lr = 0.0002f0
-λ = 100.0 # L1 reconstruction Loss Weight
+λ = 10.0 # L1 reconstruction Loss Weight
 NUM_EXAMPLES = 1 # Temporary for experimentation
 VERBOSE_FREQUENCY = 2 # Verbose output after every 2 epochs
 

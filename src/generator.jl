@@ -50,7 +50,7 @@ function (u::UNet)(x)
     outputs = Vector(undef, 5)
     outputs[1] = u.conv_blocks[1](x)
     for i in 2:5
-        pool_x = 
+        pool_x = u.pool_layer(outputs[i - 1])
         outputs[i] = u.conv_blocks[i](pool_x)
     end
     up_x = outputs[end]
