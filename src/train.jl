@@ -13,7 +13,7 @@ include("generator.jl")
 include("discriminator.jl")
 
 # Hyperparameters
-NUM_EPOCHS = 50
+NUM_EPOCHS = 50 
 BATCH_SIZE = 1
 dis_lr = 0.0002f0
 gen_lr = 0.0002f0
@@ -52,17 +52,17 @@ function train_step(X_A,X_B)
     # save_to_image(X_A)
     X_A = norm(X_A)
     X_B = norm(X_B)
-    # save_to_image(X_A)
-    # println("Saved image")
+    save_to_image(X_B)
+    println("Saved image")
 
     # LABELS #
-    # Flip the labels
-    real_labels = zeros(1,BATCH_SIZE) |> gpu
-    fake_labels = ones(1,BATCH_SIZE) |> gpu
+    # Flip the labels -> Not now
+    real_labels = ones(1,BATCH_SIZE) |> gpu
+    fake_labels = zeros(1,BATCH_SIZE) |> gpu
     
     ### Forward Propagation ###
     ### Discriminator Update ###
-    # zero_grad!(dis)
+    zero_grad!(dis)
 
     # Domain A->B
     fake_B = gen(X_A)
@@ -78,15 +78,16 @@ function train_step(X_A,X_B)
     loss_D_real = bce(real_prob,real_labels)
     # println(real_prob)
     # println(real_labels)
-    
+
     loss_D = 0.5 * (loss_D_real + loss_D_fake)
 
     # Optimise #
     gs = Tracker.gradient(() -> loss_D,params(dis))
+    println(mean(gs[dis.layers[1].weight]))
     update!(opt_disc,params(dis),gs) 
     
     ### Generator Update ###
-    # zero_grad!(gen)
+    zero_grad!(gen)
 
     # Domain A->B
     fake_B = gen(X_A)

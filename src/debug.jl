@@ -12,13 +12,14 @@ include("discriminator.jl")
 # dis = Discriminator() |> gpu
 gen = UNet() |> gpu
 fake_B = gen(ones(256,256,3,1) |> gpu)
+println(size(fake_B))
 # fake_AB = cat(fake_B,ones(256,256,3,1) |> gpu,dims=3)
 # fake_prob = drop_first_two(dis(fake_AB))
 # loss = mean((fake_prob .- ones(size(fake_prob)))
-loss = mean(abs.(fake_B .- rand(size(fake_B))))
+# loss = mean(abs.(fake_B .- rand(size(fake_B))))
 # loss2 = mean()
 
-gs = Tracker.gradient(() -> loss,params(gen))
+# gs = Tracker.gradient(() -> loss,params(gen))
 # update!(opt_gen,params(gen),gs)
 
 # out = dis(fake_AB.data)
