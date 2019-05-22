@@ -17,7 +17,7 @@ function sampleA2B(X_A_test,gen)
     Samples new images in domain B
     X_A_test : N x C x H x W array - Test images in domain A
     """
-    testmode!(gen)
+    # testmode!(gen)
     X_A_test = norm(X_A_test)
     X_B_generated = cpu(denorm(gen(X_A_test |> gpu)).data)
     testmode!(gen,false)
@@ -30,21 +30,24 @@ function sampleA2B(X_A_test,gen)
 end
 
 function test()
-   gen = UNet()
-   println("Loaded Generator")
+   # gen = UNet()
+   # println("Loaded Generator")
 
    # load test data
    dataA,_ = load_dataset("../data/train/",256)
    dataA = dataA[:,:,:,1] |> gpu
    dataA = reshape(dataA,256,256,3,1)
 
-   weights = Tracker.data.(params(gen));
+   # gen_weights = Tracker.data.(params(gen));
 
+   # println(gen_weights)
    # @load "../weights/gen.bson" gen
-   @load "../weights/gen.bson" gen_weights
+   @load "../weights/gen.bson" gen
 
-   Flux.loadparams!(gen,weights)
+   # Flux.loadparams!(gen,gen_weights)
    gen = gen |> gpu
+   println("Loaded Generator")
+   
    out = sampleA2B(dataA,gen)
 
    for (i,img) in enumerate(out)
