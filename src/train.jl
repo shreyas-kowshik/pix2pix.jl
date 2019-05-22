@@ -81,7 +81,7 @@ function g_loss(a,b)
     fake_prob = drop_first_two(dis(fake_AB))
 
     loss_adv = mean(bce(fake_prob,real_labels))
-    loss_L1 = mean(abs.(gen(a |> gpu) .- (b |> gpu))) 
+    loss_L1 = mean(abs.(fake_B .- b)) 
     loss_adv + λ*loss_L1
 end
 
