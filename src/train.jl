@@ -38,10 +38,7 @@ train_B = [make_minibatch(dataB, i) for i in mb_idxs]
 println("Loaded Data")
 
 # Define models
-# gen = UNet() |> gpu # Generator For A->B
-gen = generator() |> gpu
-# dis = Discriminator() |> gpu # Discriminator
-
+gen = UNet() |> gpu # Generator For A->B
 dis = Discriminator() |> gpu
 println("Loaded Models")
 

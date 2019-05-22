@@ -60,9 +60,9 @@ function (u::UNet)(x)
     u.up_blocks[end](up_x)
 end
 
-function generator()
-    Chain(Conv((3,3),3=>3,pad=(1,1);init=_random_normal))
-end
+# function generator()
+#     Chain(Conv((3,3),3=>3,pad=(1,1);init=_random_normal))
+# end
 
 # function (u::UNet)(x)
 #     tanh.((Chain(UNetConvBlock(3, 3),MaxPool((2,2)),ConvTranspose((2, 2), 3=>3, stride=(2, 2))) |> gpu)(x))
