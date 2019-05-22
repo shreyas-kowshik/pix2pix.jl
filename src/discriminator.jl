@@ -9,10 +9,6 @@ ConvBlock(in_ch::Int,out_ch::Int) =
           BatchNormWrap(out_ch)...,
           x->leakyrelu.(x,0.2))
 
-function add_conv_block(model,in_ch,out_ch)
-    return Chain(model...,ConvBlock(in_ch,out_ch))
-end
-
 function Discriminator()
     model = Chain(Conv((6,6), 6=>16,pad = (2, 2), stride=(2,2);init=random_normal),BatchNormWrap(16)...,x->leakyrelu.(x,0.2),
                   ConvBlock(16,32),

@@ -1,15 +1,21 @@
 function load_image(filename)
     img = load(filename)
-    img = Float64.(channelview(img))
+    img = Float32.(channelview(img))
 end
 
 function load_dataset(path,imsize)
     imgsA = []
     imgsB = []
+    # TODO : Remove 'i'
+    i = 0
     for r in readdir(path)
+        if i > 2
+          break
+        end
         img_path = string(path,r)
         push!(imgsA,load_image(img_path)[:,:,1:256])
         push!(imgsB,load_image(img_path)[:,:,257:end])
+        i+=1
     end
     return reshape(cat(imgsA...,dims=4),imsize,imsize,3,length(imgsA)),reshape(cat(imgsB...,dims=4),imsize,imsize,3,length(imgsB))
 end
@@ -37,7 +43,7 @@ function zero_grad!(model)
 end
 
 function norm(x)
-    2.0 .* x .- 1.0
+    (2.0 .* x) .- 1.0
 end
 
 function denorm(x)
@@ -79,7 +85,7 @@ end
 # Loss function
 # The binary cross entropy loss
 function bce(ŷ, y)
-    mean(-y.*log.(ŷ .+ 1f-10) - (1  .- y).*log.(1 .- ŷ .+ 1f-10))
+    -y.*log.(ŷ .+ 1f-10) - (1  .- y).*log.(1 .- ŷ .+ 1f-10)
 end
 
 function logitbinarycrossentropy(logŷ, y)
