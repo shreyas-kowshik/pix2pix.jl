@@ -30,21 +30,13 @@ function sampleA2B(X_A_test,gen)
 end
 
 function test()
-   # gen = UNet()
-   # println("Loaded Generator")
-
    # load test data
    dataA,_ = load_dataset("../data/train/",256)
    dataA = dataA[:,:,:,1] |> gpu
    dataA = reshape(dataA,256,256,3,1)
 
-   # gen_weights = Tracker.data.(params(gen));
-
-   # println(gen_weights)
-   # @load "../weights/gen.bson" gen
    @load "../weights/gen.bson" gen
 
-   # Flux.loadparams!(gen,gen_weights)
    gen = gen |> gpu
    println("Loaded Generator")
    

@@ -57,7 +57,7 @@ function (u::UNet)(x)
     for i in 1:4
         up_x = u.up_blocks[i](up_x, outputs[end - i])
     end
-    u.up_blocks[end](up_x)
+    tanh.(u.up_blocks[end](up_x))
 end
 
 # function generator()

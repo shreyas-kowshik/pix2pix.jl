@@ -10,14 +10,14 @@ ConvBlock(in_ch::Int,out_ch::Int) =
           x->leakyrelu.(x,0.2))
 
 function Discriminator()
-    model = Chain(Conv((6,6), 6=>16,pad = (2, 2), stride=(2,2);init=random_normal),BatchNormWrap(16)...,x->leakyrelu.(x,0.2),
-                  ConvBlock(16,32),
-                  ConvBlock(32,64),
+    model = Chain(Conv((6,6), 6=>64,pad = (2, 2), stride=(2,2);init=random_normal),BatchNormWrap(64)...,x->leakyrelu.(x,0.2),
                   ConvBlock(64,128),
+                  ConvBlock(128,256),
+                  ConvBlock(256,512),
+                  ConvBlock(512,256),
+                  ConvBlock(256,128),
                   ConvBlock(128,64),
-                  ConvBlock(64,32),
-                  ConvBlock(32,16),
-                  Conv((4,4), 16=>1,pad = (1, 1), stride=(2,2);init=random_normal),
+                  Conv((4,4), 64=>1,pad = (1, 1), stride=(2,2);init=random_normal),
                   x->σ.(x))
     return model 
 end

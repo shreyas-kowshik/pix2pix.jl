@@ -15,8 +15,8 @@ include("discriminator.jl")
 # Hyperparameters
 NUM_EPOCHS = 5000
 BATCH_SIZE = 1
-dis_lr = 0.000002f0
-gen_lr = 0.02f0
+dis_lr = 0.00002f0
+gen_lr = 0.00002f0
 λ = convert(Float32,10.0) # L1 reconstruction Loss Weight
 NUM_EXAMPLES = 1 # Temporary for experimentation
 VERBOSE_FREQUENCY = 1 # Verbose output after every 2 epochs
