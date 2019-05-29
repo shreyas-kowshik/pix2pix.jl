@@ -1,6 +1,3 @@
-using CUDAnative
-device!(1)
-
 using Images,CuArrays,Flux
 using Flux:@treelike, Tracker
 using Base.Iterators: partition
@@ -16,23 +13,28 @@ include("generator.jl")
 include("discriminator.jl")
 
 # Hyperparameters
-NUM_EPOCHS = 15
-BATCH_SIZE = 8
+NUM_EPOCHS = 5000
+BATCH_SIZE = 1
 dis_lr = 0.00002f0
 gen_lr = 0.00002f0
 λ = convert(Float32,10.0) # L1 reconstruction Loss Weight
 NUM_EXAMPLES = 1 # Temporary for experimentation
-VERBOSE_FREQUENCY = 10 # Verbose output after every 10 steps
-SAVE_FREQUENCY = 2000
+VERBOSE_FREQUENCY = 1 # Verbose output after every 2 epochs
 # Debugging
 G_STEPS = 1
 D_STEPS = 1
 
 # Data Loading
-data = load_dataset("../data/edges2shoes/train/",256)
+dataA,dataB = load_dataset("../data/train/",256)
 
-mb_idxs = partition(shuffle!(collect(1:length(data))), BATCH_SIZE)
-train_batches = [data[i] for i in mb_idxs]
+# Temporary
+dataA = dataA[:,:,:,1:NUM_EXAMPLES]
+dataB = dataB[:,:,:,1:NUM_EXAMPLES]
+###########
+
+mb_idxs = partition(shuffle!(collect(1:size(dataA)[end])), BATCH_SIZE)
+train_A = [make_minibatch(dataA, i) for i in mb_idxs]
+train_B = [make_minibatch(dataB, i) for i in mb_idxs]
 println("Loaded Data")
 
 # Define models
@@ -49,9 +51,9 @@ function d_loss(a,b)
     a : Image in domain A
     b : Image in domain B
     """
-    real_labels = ones(1,size(a)[end]) |> gpu
-    fake_labels = zeros(1,size(a)[end]) |> gpu
-    
+    real_labels = ones(1,BATCH_SIZE) |> gpu
+    fake_labels = zeros(1,BATCH_SIZE) |> gpu
+
     fake_B = gen(a |> gpu)
     fake_AB = cat(fake_B,a,dims=3) |> gpu
 
@@ -62,7 +64,7 @@ function d_loss(a,b)
     real_prob = drop_first_two(dis(real_AB))
     loss_D_real = bce(real_prob,real_labels)
 
-    convert(Float32,0.5) * mean(loss_D_real .+ loss_D_fake)
+    0.5 * mean(loss_D_real .+ loss_D_fake)
 end
 
 function g_loss(a,b)
@@ -70,19 +72,16 @@ function g_loss(a,b)
     a : Image in domain A
     b : Image in domain B
     """
-    # println(mean(b))
-    real_labels = ones(1,size(a)[end]) |> gpu
-    fake_labels = zeros(1,size(a)[end]) |> gpu
-    
+    real_labels = ones(1,BATCH_SIZE) |> gpu
+    fake_labels = zeros(1,BATCH_SIZE) |> gpu
+
     fake_B = gen(a |> gpu)
     fake_AB = cat(fake_B,a,dims=3) |> gpu
 
     fake_prob = drop_first_two(dis(fake_AB))
-    
-    # println("Fake Prob : $fake_prob")
+
     loss_adv = mean(bce(fake_prob,real_labels))
     loss_L1 = mean(abs.(fake_B .- b)) 
-    # println("Loss L1 : $loss_L1")
     loss_adv + λ*loss_L1
 end
 
@@ -113,34 +112,21 @@ end
 function save_weights(gen,dis)
     gen = gen |> cpu
     dis = dis |> cpu
-    @save "../weights/e2s/gen.bson" gen
-    @save "../weights/e2s/dis.bson" dis
-    gen = gen |> gpu
-    dis = dis |> gpu
-    println("Saved...")
+    @save "../weights/gen.bson" gen
+    @save "../weights/dis.bson" dis
 end
 
 function train()
     println("Training...")
-    verbose_step = 0
 
     for epoch in 1:NUM_EPOCHS
         println("-----------Epoch : $epoch-----------")
-        for i in 1:length(train_batches)
-	    train_A,train_B = get_batch(train_batches[i],256)
-	    # println(mean(train_B))
-            dloss,gloss = train_step(train_A |> gpu,train_B |> gpu)
-            if verbose_step % VERBOSE_FREQUENCY == 0
-		println("--- Verbose Step : $verbose_step ---")
+        for i in 1:length(train_A)
+            dloss,gloss = train_step(train_A[i] |> gpu,train_B[i] |> gpu)
+            if epoch % VERBOSE_FREQUENCY == 0
                 println("Gen Loss : $gloss")
                 println("DisA Loss : $dloss")
             end
-	    
-	    if verbose_step % SAVE_FREQUENCY == 0
-		save_weights(gen,dis)
-	    end
-
-	    verbose_step+=1    
         end
     end
 

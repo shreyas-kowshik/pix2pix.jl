@@ -1,3 +1,6 @@
+using CUDAnative
+device!(1)
+
 using Images,CuArrays,Flux
 using Flux:@treelike, Tracker
 using Base.Iterators: partition
@@ -17,9 +20,9 @@ function sampleA2B(X_A_test,gen)
     Samples new images in domain B
     X_A_test : N x C x H x W array - Test images in domain A
     """
-    # testmode!(gen)
+    testmode!(gen)
     X_A_test = norm(X_A_test)
-    X_B_generated = cpu(denorm(gen(X_A_test |> gpu)).data)
+    X_B_generated = cpu(denorm(gen(X_A_test |> gpu)))
     testmode!(gen,false)
     imgs = []
     s = size(X_B_generated)
@@ -31,11 +34,12 @@ end
 
 function test()
    # load test data
-   dataA,_ = load_dataset("../data/train/",256)
-   dataA = dataA[:,:,:,1] |> gpu
+   data = load_dataset("../data/edges2shoes/train/",256)[1:1]
+   println(data)
+   dataA,_ = get_batch(data,256) |> gpu
    dataA = reshape(dataA,256,256,3,1)
 
-   @load "../weights/gen.bson" gen
+   @load "../weights/e2s/gen.bson" gen
 
    gen = gen |> gpu
    println("Loaded Generator")

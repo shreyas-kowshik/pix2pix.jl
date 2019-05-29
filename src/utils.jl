@@ -4,20 +4,25 @@ function load_image(filename)
 end
 
 function load_dataset(path,imsize)
-    imgsA = []
-    imgsB = []
-    # TODO : Remove 'i'
-    i = 0
+    imgs = []
     for r in readdir(path)
-        if i > 2
-          break
-        end
         img_path = string(path,r)
-        push!(imgsA,load_image(img_path)[:,:,1:256])
-        push!(imgsB,load_image(img_path)[:,:,257:end])
-        i+=1
+        push!(imgs,img_path)
     end
-    return reshape(cat(imgsA...,dims=4),imsize,imsize,3,length(imgsA)),reshape(cat(imgsB...,dims=4),imsize,imsize,3,length(imgsB))
+    imgs
+end
+
+function get_batch(files,imsize)
+   """
+   files : array of image names in a path
+   """
+   imgsA = []
+   imgsB = []
+   for file in files
+        push!(imgsA,load_image(file)[:,:,1:256])
+        push!(imgsB,load_image(file)[:,:,257:end])
+   end
+   return reshape(cat(imgsA...,dims=4),imsize,imsize,3,length(imgsA)),reshape(cat(imgsB...,dims=4),imsize,imsize,3,length(imgsB))
 end
 
 function make_minibatch(X, idxs,size=256)
@@ -43,11 +48,11 @@ function zero_grad!(model)
 end
 
 function norm(x)
-    (2.0 .* x) .- 1.0
+    convert(CuArray{Float32},2.0 .* x .- 1.0)
 end
 
 function denorm(x)
-   (x .+ 1.0)./(2.0) 
+   convert(CuArray{Float32},((x .+ 1.0)./(2.0) ))
 end
 
 expand_dims(x,n::Int) = reshape(x,ones(Int64,n)...,size(x)...)
