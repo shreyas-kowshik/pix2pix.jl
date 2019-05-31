@@ -80,6 +80,17 @@ function save_to_image(var,name)
   save("../sample/$name",img)
 end
 
+function get_image_array(var)
+  """
+  Takes in a variable on the gpu and gives the corresponding processed image array
+  """
+  cpu_out = cpu(denorm(var))
+  cpu_out = cpu_out .- minimum(cpu_out)
+  cpu_out = cpu_out ./ maximum(cpu_out)
+  s = size(cpu_out)
+  reshape(cpu_out[:,:,:,1],3,s[1],s[2])
+end
+
 # BatchNorm Wrapper
 function BatchNormWrap(out_ch)
     Chain(x->expand_dims(x,2),

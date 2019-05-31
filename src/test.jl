@@ -1,5 +1,5 @@
 using CUDAnative
-device!(1)
+device!(5)
 
 using Images,CuArrays,Flux
 using Flux:@treelike, Tracker
@@ -22,22 +22,25 @@ function sampleA2B(X_A_test,gen)
     """
     testmode!(gen)
     X_A_test = norm(X_A_test)
-    X_B_generated = cpu(denorm(gen(X_A_test |> gpu)))
+    X_B_generated = cpu(gen(X_A_test |> gpu))
+    println(size(X_B_generated))
     testmode!(gen,false)
     imgs = []
     s = size(X_B_generated)
-    for i in size(X_B_generated)[end]
-       push!(imgs,colorview(RGB,reshape(X_B_generated[:,:,:,i],3,s[1],s[2])))
+    for i in 1:size(X_B_generated)[end]
+       xt = reshape(X_A_test[:,:,:,i],256,256,3,1)
+       xb = reshape(X_B_generated[:,:,:,i],256,256,3,1)
+       out_array = cat(get_image_array(xt),get_image_array(xb),dims=3)
+       save("../sample/$i.png",colorview(RGB,out_array))
     end
     imgs
 end
 
 function test()
    # load test data
-   data = load_dataset("../data/edges2shoes/train/",256)[1:1]
-   println(data)
+   data = load_dataset("../data/edges2shoes/train/",256)[271:280]
    dataA,_ = get_batch(data,256) |> gpu
-   dataA = reshape(dataA,256,256,3,1)
+   dataA = reshape(dataA,256,256,3,10)
 
    @load "../weights/e2s/gen.bson" gen
 
@@ -45,10 +48,6 @@ function test()
    println("Loaded Generator")
    
    out = sampleA2B(dataA,gen)
-
-   for (i,img) in enumerate(out)
-        save("../sample/A_$i.png",img)
-   end
 end
 
 test()

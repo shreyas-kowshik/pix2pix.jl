@@ -17,7 +17,7 @@ include("discriminator.jl")
 
 # Hyperparameters
 NUM_EPOCHS = 15
-BATCH_SIZE = 8
+BATCH_SIZE = 4
 dis_lr = 0.00002f0
 gen_lr = 0.00002f0
 λ = convert(Float32,10.0) # L1 reconstruction Loss Weight
