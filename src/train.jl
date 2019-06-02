@@ -1,4 +1,5 @@
 using CUDAnative
+using CUDAnative:exp,log
 device!(4)
 
 using Images,CuArrays,Flux
@@ -10,20 +11,24 @@ using Flux.Tracker:update!
 using BSON: @save
 using Flux:testmode!
 using Distributions:Normal,Uniform
+using JLD
+# using BenchmarkTools
 
 include("utils.jl")
 include("generator.jl")
 include("discriminator.jl")
+include("test.jl")
 
 # Hyperparameters
-NUM_EPOCHS = 15
-BATCH_SIZE = 4
-dis_lr = 0.00002f0
-gen_lr = 0.00002f0
+NUM_EPOCHS = 200
+BATCH_SIZE = 2
+dis_lr = 0.0002f0
+gen_lr = 0.0002f0
 λ = convert(Float32,10.0) # L1 reconstruction Loss Weight
-NUM_EXAMPLES = 1 # Temporary for experimentation
+NUM_EXAMPLES = 50 # Temporary for experimentation
 VERBOSE_FREQUENCY = 10 # Verbose output after every 10 steps
 SAVE_FREQUENCY = 2000
+SAMPLE_FREQUENCY = 50 # Sample every these mamy number of steps
 # Debugging
 G_STEPS = 1
 D_STEPS = 1
@@ -32,16 +37,24 @@ D_STEPS = 1
 global gloss = 0.0
 global dloss = 0.0
 
+# Statistics to keep track of
+global gloss_hist = []
+global dloss_hist = []
+
 # Data Loading
-data = load_dataset("../data/edges2shoes/train/",256)
+data = load_dataset("../data/train/",256)[1:NUM_EXAMPLES]
+println(length(data))
 
 mb_idxs = partition(shuffle!(collect(1:length(data))), BATCH_SIZE)
 train_batches = [data[i] for i in mb_idxs]
+println(length(train_batches))
 println("Loaded Data")
 
 # Define models
 gen = UNet() |> gpu # Generator For A->B
 dis = Discriminator() |> gpu
+println(length(params(gen)))
+println(length(params(dis)))
 println("Loaded Models")
 
 # Define Optimizers
@@ -57,15 +70,25 @@ function d_loss(a,b)
     real_labels = ones(1,size(a)[end]) |> gpu
     fake_labels = zeros(1,size(a)[end]) |> gpu
     
-    fake_B = gen(a |> gpu)
+    fake_B = gen(a |> gpu).data
+#    println(mean(fake_B))
+#    println(minimum(fake_B))
+#    println(maximum(fake_B))
+
     fake_AB = cat(fake_B,a,dims=3) |> gpu
 
     fake_prob = drop_first_two(dis(fake_AB))
-    loss_D_fake = bce(fake_prob,fake_labels)
+    println(fake_prob)
+
+    loss_D_fake = logitbinarycrossentropy(fake_prob,fake_labels)
+    println(mean(loss_D_fake))
 
     real_AB =  cat(b,a,dims=3) |> gpu
     real_prob = drop_first_two(dis(real_AB))
-    loss_D_real = bce(real_prob,real_labels)
+    println(real_prob)
+
+    loss_D_real = logitbinarycrossentropy(real_prob,real_labels)
+    println(mean(loss_D_real))
 
     dloss = convert(Float32,0.5) * mean(loss_D_real .+ loss_D_fake)
     dloss
@@ -77,52 +100,70 @@ function g_loss(a,b)
     b : Image in domain B
     """
     global gloss
+    glob_start = time()
     # println(mean(b))
     real_labels = ones(1,size(a)[end]) |> gpu
     fake_labels = zeros(1,size(a)[end]) |> gpu
     
+    start = time()
     fake_B = gen(a |> gpu)
+    time_ = time() - start
+    # println("fake_B : $time_")
+
     fake_AB = cat(fake_B,a,dims=3) |> gpu
 
+    start = time()
     fake_prob = drop_first_two(dis(fake_AB))
-    
-    # println("Fake Prob : $fake_prob")
-    loss_adv = mean(bce(fake_prob,real_labels))
+    time_ = time() - start
+    # println("fake_prob : $time_")
+ 
+    println("Fake Prob : $fake_prob")
+    loss_adv = mean(logitbinarycrossentropy(fake_prob,real_labels))
     loss_L1 = mean(abs.(fake_B .- b)) 
-    # println("Loss L1 : $loss_L1")
+    println("Loss L1 : $loss_L1")
+    time_ = time() - glob_start
+    println("Overall g_loss : $time_")
+
     gloss = loss_adv + λ*loss_L1
     gloss
 end
 
 # Forward prop, backprop, optimise!
 function train_step(X_A,X_B)
+    global gen
+    global dis
     global gloss
     global dloss
     start = time()
     X_A = norm(X_A)
     X_B = norm(X_B)
     time_ = time() - start
-    println("Normalizations : $time_")
+#    println("Normalizations : $time_")
 
-    start = time()
-    gs = Tracker.gradient(() -> d_loss(X_A,X_B),params(dis))
-    time_ = time() - start
-    println("Dis gradient : $time_")
+    for _ in 1:D_STEPS
+	   start = time()
+   	   gs = Tracker.gradient(() -> d_loss(X_A,X_B),params(dis))
+	   println(mean(gs[dis.layers[1].weight]))
+	   println(mean(gs[dis.layers[end].weight]))
 
-    start = time()
-    update!(opt_disc,params(dis),gs)
-    time_ = time() - start
-    println("Dis update : $time_")
+ 	   time_ = time() - start
+ #   println("Dis gradient : $time_")
+
+    	start = time()
+    	update!(opt_disc,params(dis),gs)
+    	time_ = time() - start
+  #  println("Dis update : $time_")
+    end
 
     start = time()
     gs = Tracker.gradient(() -> g_loss(X_A,X_B),params(gen))  
     time_ = time() - start
-    println("Gen gradient : $time_")
+   # println("Gen gradient : $time_")
 
     start = time()
     update!(opt_gen,params(gen),gs)
     time_ = time() - start
-    println("Gen update : $time_")
+    #println("Gen update : $time_")
 
     # Get losses
     # loss_G = g_loss(X_A,X_B)
@@ -144,6 +185,8 @@ end
 function train()
     global gloss
     global dloss
+    global gen
+    global dis
 
     println("Training...")
     verbose_step = 0
@@ -153,36 +196,48 @@ function train()
         for i in 1:length(train_batches)
 	    glob_start = time()
 	    start = time()
-	    train_A,train_B = get_batch(train_batches[i],256)
+	    train_B,train_A = get_batch(train_batches[i],256)
+	    println(size(train_A))
             time_ = time() - start
-	    println("get_batch : $time_")
+#	    println("get_batch : $time_")
 	    # println(mean(train_B))
 	    st = time()
             train_step(train_A |> gpu,train_B |> gpu)
 	    time_ = time() - st
-	    println("Train step : $time_")
+	    # println("Train step : $time_")
             if verbose_step % VERBOSE_FREQUENCY == 0
+	 	push!(dloss_hist,dloss)
+		push!(gloss_hist,gloss)
+
+		# Save the statistics
+		save("../weights/stats.jld","dloss",dloss_hist)
+		save("../weights/stats.jld","dloss",dloss_hist)
+
 		println("--- Verbose Step : $verbose_step ---")
                 println("Gen Loss : $gloss")
                 println("Dis Loss : $dloss")
             end
+
+	    if verbose_step % SAMPLE_FREQUENCY == 0	
+                sampleA2B(train_A,gen)
+	    end
 	    
 	    if verbose_step % SAVE_FREQUENCY == 0
 		start = time()
-		save_weights(gen,dis)
+		# save_weights(gen,dis)
 		time_ = time() - start
 		println("Save : $time_")
 	    end
 
 	    verbose_step+=1    
 	    time_ = time() - glob_start
-	    println("")
-	    println("TRAIN BATCH : $time_")
-	    println("-------------------------")
+	#    println("")
+	 #   println("TRAIN BATCH : $time_")
+	  #  println("-------------------------")
         end
     end
 
-    save_weights(gen,dis)
+    # save_weights(gen,dis)
 end
 
 train()
