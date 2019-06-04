@@ -17,7 +17,7 @@ function Discriminator()
                   ConvBlock(512,256),
                   ConvBlock(256,128),
                   ConvBlock(128,64),
-                  Conv((4,4), 64=>1,pad = (1, 1), stride=(2,2);init=random_normal))
-                  # x->σ.(x))
+                  Conv((4,4), 64=>1,pad = (1, 1), stride=(2,2);init=random_normal),
+                  x->σ.(x))
     return model 
 end

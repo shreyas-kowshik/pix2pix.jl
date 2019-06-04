@@ -22,12 +22,12 @@ include("test.jl")
 
 # Hyperparameters
 NUM_EPOCHS = 200
-BATCH_SIZE = 2
-dis_lr = 0.00002f0
-gen_lr = 0.00002f0
-λ = convert(Float32,100.0) # L1 reconstruction Loss Weight
+BATCH_SIZE = 1
+dis_lr = 0.0002f0
+gen_lr = 0.0002f0
+λ = convert(Float32,10.0) # L1 reconstruction Loss Weight
 NUM_EXAMPLES = 1  # Temporary for experimentation
-VERBOSE_FREQUENCY = 1 # Verbose output after every 10 steps
+VERBOSE_FREQUENCY = 10 # Verbose output after every 10 steps
 SAVE_FREQUENCY = 2000
 SAMPLE_FREQUENCY = 50 # Sample every these mamy number of steps
 # Debugging
@@ -43,7 +43,7 @@ global gloss_hist = []
 global dloss_hist = []
 
 # Data Loading
-data = load_dataset("../data/train/",256)[1:NUM_EXAMPLES]
+data = load_dataset("../data/edges2shoes/train/",256)[1:NUM_EXAMPLES]
 println(length(data))
 
 mb_idxs = partition(shuffle!(collect(1:length(data))), BATCH_SIZE)
@@ -61,6 +61,8 @@ println("Loaded Models")
 # Define Optimizers
 opt_gen = ADAM(gen_lr,(0.5,0.999))
 opt_disc = ADAM(dis_lr,(0.5,0.999))
+#opt_gen = ADAM(params(gen),gen_lr,β1 = 0.5)
+#opt_disc = ADAM(params(dis),dis_lr,β1 = 0.5)
 
 function d_loss(a,b)
     """
@@ -79,17 +81,28 @@ function d_loss(a,b)
     fake_AB = cat(fake_B,a,dims=3)
 
     fake_prob = drop_first_two(dis(fake_AB))
-    println(fake_prob)
+    println("-------------DIS----------")
+    println("Fake prob : $fake_prob")
+    
+    # Intermediate calucaltion for gradient computation #
+    o = mean(Chain(dis.layers[1:end-2]...)(fake_AB))
+    println("Intermediate gradient_ value fake : $o")
+    #############################
 
-    loss_D_fake = logitbinarycrossentropy(fake_prob,fake_labels)
-    println(mean(loss_D_fake))
+    loss_D_fake = bce(fake_prob,fake_labels)
+    println("Fake Loss : $(mean(loss_D_fake))")
 
     real_AB =  cat(b,a,dims=3)
     real_prob = drop_first_two(dis(real_AB))
-    println(real_prob)
+    println("Real Prob : $real_prob")
 
-    loss_D_real = logitbinarycrossentropy(real_prob,real_labels)
-    println(mean(loss_D_real))
+    # Intermediate calucaltion for gradient computation #
+    o = mean(Chain(dis.layers[1:end-2]...)(real_AB))
+    println("Intermediate gradient_ value real : $o")
+    #############################
+
+    loss_D_real = bce(real_prob,real_labels)
+    println("Real Loss : $(mean(loss_D_real))")
 
     dloss = convert(Float32,0.5) * mean(loss_D_real .+ loss_D_fake)
     dloss
@@ -120,9 +133,10 @@ function g_loss(a,b)
     fake_prob = drop_first_two(dis(fake_AB))
     time_ = time() - start
     # println("fake_prob : $time_")
-     
+    
+    println("---------------------GEN-----------------")
     println("Fake Prob : $fake_prob")
-    loss_adv = mean(logitbinarycrossentropy(fake_prob,real_labels))
+    loss_adv = mean(bce(fake_prob,real_labels))
     println("Loss Adv : $loss_adv")
 
     loss_L1 = mean(abs.(fake_B .- b)) 
@@ -131,7 +145,7 @@ function g_loss(a,b)
     println("Overall g_loss : $time_")
 
     gloss = loss_adv + λ*loss_L1
-    mean(fake_AB)
+    gloss
 end
 
 # Forward prop, backprop, optimise!
@@ -148,36 +162,44 @@ function train_step(X_A,X_B)
 
     for _ in 1:D_STEPS
 	   start = time()
-   	   gs = Tracker.gradient(() -> d_loss(X_A,X_B),params(dis))
-	   println(mean(gs[dis.layers[1].weight]))
-	   println(mean(gs[dis.layers[end].weight]))
+	   zero_grad!(dis)
+	   #Flux.back!(d_loss(X_A,X_B))
+	   #println("DIs Bottom Grad : $(mean(dis.layers[1].weight.grad))")
+	   #println("Dis Top Grad : $(mean(dis.layers[end-1].weight.grad))")
 
- 	   time_ = time() - start
- #   println("Dis gradient : $time_")
+   	   gs = Tracker.gradient(() -> d_loss(X_A,X_B),params(dis))
+	   println("DIs Bottom Grad : $(mean(gs[dis.layers[1].weight]))")
+	   println("Dis Top Grad : $(mean(gs[dis.layers[end-1].weight]))") 
+
+	   time_ = time() - start
+	   println("Dis gradient : $time_")
 
     	start = time()
     	update!(opt_disc,params(dis),gs)
+	#opt_disc()
     	time_ = time() - start
-  #  println("Dis update : $time_")
+  	println("Dis update : $time_")
     end
 
     start = time()
+    zero_grad!(gen)
+    #Flux.back!(g_loss(X_A,X_B))
+    #println("Gen bottom grad : $(mean(gen.conv_blocks[1].layers[1].weight.grad))")
+    #println("Gen top grad : $(mean(gen.up_blocks[end].weight.grad))")
+
     gs = Tracker.gradient(() -> g_loss(X_A,X_B),params(gen))  
-    println(mean(gs[gen.conv_blocks[1].layers[1].weight]))
-    println(mean(gs[gen.up_blocks[end].weight]))
+    println("Gen bottom grad : $(mean(gs[gen.conv_blocks[1].layers[1].weight]))")
+    println("Gen top grad : $(mean(gs[gen.up_blocks[end].weight]))")
+
     time_ = time() - start
-   # println("Gen gradient : $time_")
+    println("Gen gradient : $time_")
 
     start = time()
     update!(opt_gen,params(gen),gs)
+    #opt_gen()
+
     time_ = time() - start
-    #println("Gen update : $time_")
-
-    # Get losses
-    # loss_G = g_loss(X_A,X_B)
-    # loss_D = d_loss(X_A,X_B)
-
-    # return loss_D,loss_G
+    println("Gen update : $time_")
 end
 
 function save_weights(gen,dis)
@@ -204,7 +226,7 @@ function train()
         for i in 1:length(train_batches)
 	    glob_start = time()
 	    start = time()
-	    train_B,train_A = get_batch(train_batches[i],256)
+	    train_A,train_B = get_batch(train_batches[i],256)
 	    println(size(train_A))
             time_ = time() - start
 #	    println("get_batch : $time_")
@@ -213,13 +235,15 @@ function train()
             train_step(train_A |> gpu,train_B |> gpu)
 	    time_ = time() - st
 	    # println("Train step : $time_")
+
+	    push!(dloss_hist,dloss.data)
+	    push!(gloss_hist,gloss.data)
+
             if verbose_step % VERBOSE_FREQUENCY == 0
-	 	push!(dloss_hist,dloss.data)
-		push!(gloss_hist,gloss.data)
 		i = plot(dloss_hist,fmt=:png)
 		j = plot(gloss_hist,fmt=:png)
-		savefig(i,"dloss.png")
-		savefig(j,"gloss.png")
+		# savefig(i,"dloss.png")
+		# savefig(j,"gloss.png")
 
 		# Save the statistics
 		save("../weights/stats.jld","dloss",dloss_hist)
@@ -243,9 +267,9 @@ function train()
 
 	    verbose_step+=1    
 	    time_ = time() - glob_start
-	#    println("")
-	 #   println("TRAIN BATCH : $time_")
-	  #  println("-------------------------")
+	    println("")
+	    println("TRAIN BATCH : $time_")
+	    println("-------------------------")
         end
     end
 
