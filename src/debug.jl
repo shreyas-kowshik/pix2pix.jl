@@ -1,9 +1,14 @@
+using CUDAnative
+device!(5)
+
+using BenchmarkTools
 using Images,CuArrays,Flux
 using Flux:@treelike, Tracker
 using Base.Iterators: partition
 using Random
 using Statistics
 using Flux.Tracker:update!
+using Distributions:Normal
 
 include("utils.jl")
 include("generator.jl")
@@ -11,26 +16,41 @@ include("discriminator.jl")
 
 # dis = Discriminator() |> gpu
 gen = UNet() |> gpu
-fake_B = gen(ones(256,256,3,1) |> gpu)
-println(size(fake_B))
-# fake_AB = cat(fake_B,ones(256,256,3,1) |> gpu,dims=3)
-# fake_prob = drop_first_two(dis(fake_AB))
-# loss = mean((fake_prob .- ones(size(fake_prob)))
-# loss = mean(abs.(fake_B .- rand(size(fake_B))))
-# loss2 = mean()
+println(length(Flux.params(gen)))
 
-# gs = Tracker.gradient(() -> loss,params(gen))
-# update!(opt_gen,params(gen),gs)
+function loss(a)
+ # t = cat(a,b,dims=3)
+ fake = gen(a)
 
-# out = dis(fake_AB.data)
-# println(size(out))
+ mean(fake)
+end
 
-# out = drop_first_two(out)
-# println(size(out))
+x = ones(256,256,3,1) |> gpu
+#y = ones(256,256,3,1) |> gpu
+#out = gen(x)
+#println(size(out))
 
-# m = Chain(Conv((3,3), 3=>1,pad = (1, 1)),MaxPool((2,2)),ConvTranspose((2, 2), 1=>1, stride=(2, 2)),MaxPool((2,2))) |> gpu
-# out = m(ones(4,4,3,1) |> gpu)
-# println(size(out))
-# loss = mean(abs.(out .- (rand(size(out)) |> gpu)))
+gs = Tracker.gradient(() -> loss(x),Flux.params(gen))
+"""
+for i in 1:5
+	println(i)
+	@time loss(x)
+	@time Tracker.gradient(() -> loss(x),Flux.params(gen))
+end
+"""
 
-# gs = Tracker.gradient(() -> loss,params(m))
+"""
+
+m = Chain(Conv((3,3),3=>64,pad=(1,1))) |> gpu
+x = rand(256,256,3,1) |> gpu
+
+function loss(x)
+   out = m(x)
+   mean(out)
+end
+
+for _ in 1:5
+	@time o = loss(x)
+	@time gs = Tracker.gradient(() -> loss(x),Flux.params(m))
+end
+"""
