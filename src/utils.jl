@@ -1,5 +1,24 @@
+function random_crop(imgA,imgB,scale=256)
+    W,H = size(imgA) # We have W = H
+    diff = W - scale
+    i = rand(1:diff)
+    
+    return imgA[i:i+scale-1,i:i+scale-1],imgB[i:i+scale-1,i:i+scale-1]
+end
+
+function random_jitter(img;RESIZE_SCALE = 286)
+    A,B = img[:,1:256],img[:,257:end]
+    
+    A = imresize(A,(RESIZE_SCALE,RESIZE_SCALE))
+    B = imresize(B,(RESIZE_SCALE,RESIZE_SCALE))
+    
+    A,B = random_crop(A,B)
+    return cat(A,B,dims=2)
+end
+
 function load_image(filename)
     img = load(filename)
+    img = random_jitter(img)
     img = Float32.(channelview(img))
 end
 
