@@ -1,3 +1,4 @@
+"""
 using CUDAnative
 device!(2)
 
@@ -10,6 +11,7 @@ using Flux.Tracker:update!
 using BSON: @save,@load
 using Flux:testmode!
 using Distributions:Normal
+"""
 
 include("utils.jl")
 include("generator.jl")
@@ -95,4 +97,4 @@ function test()
    end
 end
 
-test()
+# test()

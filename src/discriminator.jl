@@ -5,7 +5,10 @@ function random_normal(shape...)
 end
 
 ConvBlock(in_ch::Int,out_ch::Int,k=4,s=2,p=1) = 
-    Chain(Conv((k,k), in_ch=>out_ch,pad = (p, p), stride=(s,s);init=random_normal),
+    Chain(Conv((3,3), in_ch=>out_ch,pad = (p, p), stride=(1,1);init=random_normal),
+          BatchNormWrap(out_ch)...,
+          x->leakyrelu.(x,0.2),
+	  Conv((k,k), out_ch=>out_ch,pad = (p, p), stride=(s,s);init=random_normal),
 	  BatchNormWrap(out_ch)...,
           x->leakyrelu.(x,0.2))
 

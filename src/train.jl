@@ -27,7 +27,7 @@ BATCH_SIZE = 4
 dis_lr = 0.0002f0
 gen_lr = 0.0002f0
 λ = convert(Float32,100.0) # L1 reconstruction Loss Weight
-NUM_EXAMPLES = 40000  # Temporary for experimentation
+NUM_EXAMPLES = 400  # Temporary for experimentation
 VERBOSE_FREQUENCY = 1 # Verbose output after every 10 steps
 SAVE_FREQUENCY = 500
 SAMPLE_FREQUENCY = 5 # Sample every these mamy number of steps
@@ -35,6 +35,7 @@ SAMPLE_FREQUENCY = 5 # Sample every these mamy number of steps
 G_STEPS = 1
 D_STEPS = 1
 resume = false
+inverse_order = true
 
 # Global printing variables
 global gloss = 0.0
@@ -46,7 +47,7 @@ global dloss_hist = []
 global global_step = 0
 
 # Data Loading
-data = load_dataset("../data/edges2shoes/train/",256)[1:NUM_EXAMPLES]
+data = load_dataset("../../old_server_pix2pix/data/facades/train/",256)[1:NUM_EXAMPLES]
 println(data[1])
 println(length(data))
 
@@ -148,8 +149,8 @@ end
 function save_weights(gen,dis)
     gen = gen |> cpu
     dis = dis |> cpu
-    @save "../weights/e2s/gen_5000.bson" gen
-    @save "../weights/e2s/dis_5000.bson" dis
+    @save "../weights/facades/gen.bson" gen
+    @save "../weights/facades/dis.bson" dis
     gen = gen |> gpu
     dis = dis |> gpu
     println("Saved...")
@@ -195,7 +196,13 @@ function train()
 	      
 	    glob_start = time()
 	    start = time()
-	    train_A,train_B = get_batch(train_batches[i],256)
+		
+	    if inverse_order == false
+	    	train_A,train_B = get_batch(train_batches[i],256)
+	    else
+		train_B,train_A = get_batch(train_batches[i],256)
+	    end
+	    
 	    println(size(train_A))
             time_ = time() - start
 #	    println("get_batch : $time_")
