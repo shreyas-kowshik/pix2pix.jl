@@ -16,7 +16,7 @@ end
 
 @treelike UNetUpBlock
 
-UNetUpBlock(in_chs::Int, out_chs::Int; kernel = (3, 3), p = 0.5) =
+UNetUpBlock(in_chs::Int, out_chs::Int; kernel = (3, 3), p = 0.0) =
     UNetUpBlock(Chain(x->leakyrelu.(x,0.2),ConvTranspose((2, 2), in_chs=>out_chs, stride=(2, 2);init=_random_normal),BatchNormWrap(out_chs)...,Dropout(p)))
 
 function (u::UNetUpBlock)(x, bridge)

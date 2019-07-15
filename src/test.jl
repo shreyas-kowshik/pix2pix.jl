@@ -26,8 +26,11 @@ function sampleA2B(X_A_test,gen;base_id="1")
     """
     # testmode!(gen)
     X_A_test = norm(X_A_test)
-    X_B_generated = cpu(gen(X_A_test |> gpu))
+    X_B_generated = cpu(gen(X_A_test |> gpu)).data
     println(size(X_B_generated))
+    println(minimum(X_B_generated))
+    println(maximum(X_B_generated))
+
     # testmode!(gen,false)
     imgs = []
     s = size(X_B_generated)
@@ -35,7 +38,7 @@ function sampleA2B(X_A_test,gen;base_id="1")
        xt = reshape(X_A_test[:,:,:,i],256,256,3,1)
        xb = reshape(X_B_generated[:,:,:,i],256,256,3,1)
        out_array = cat(get_image_array(xt),get_image_array(xb),dims=3)
-       save(string("../sample/",base_id,"_$i.png"),colorview(RGB,out_array))
+       save(string("./sample/",base_id,"_$i.png"),colorview(RGB,out_array))
     end
     imgs
 end

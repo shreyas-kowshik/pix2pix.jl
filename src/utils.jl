@@ -67,11 +67,13 @@ function zero_grad!(model)
 end
 
 function norm(x)
-    convert(CuArray{Float32},2.0 .* x .- 1.0)
+    # convert(CuArray{Float32},2.0 .* x .- 1.0)
+    (2.0f0 .* x) .- 1.0f0
 end
 
 function denorm(x)
-   convert(CuArray{Float32},((x .+ 1.0)./(2.0) ))
+   # convert(CuArray{Float32},((x .+ 1.0)./(2.0) ))
+   (x .+ 1.0f0) ./ 2.0f0
 end
 
 expand_dims(x,n::Int) = reshape(x,ones(Int64,n)...,size(x)...)
