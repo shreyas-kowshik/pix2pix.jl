@@ -14,23 +14,21 @@ include("utils.jl")
 include("generator.jl")
 include("discriminator.jl")
 
-# dis = Discriminator() |> gpu
+dis = Discriminator() |> gpu
 gen = UNet() |> gpu
 println(length(Flux.params(gen)))
 
-function loss(a)
- # t = cat(a,b,dims=3)
+function loss(a,b)
  fake = gen(a)
-
- mean(fake)
+ t = cat(fake,b,dims=3)
+ prob = dis(fake)
 end
 
 x = ones(256,256,3,1) |> gpu
-#y = ones(256,256,3,1) |> gpu
-#out = gen(x)
-#println(size(out))
+y = ones(256,256,3,1) |> gpu
 
-gs = Tracker.gradient(() -> loss(x),Flux.params(gen))
+gs = Tracker.gradient(() -> loss(x,y),Flux.params(gen))
+println(gs[dis.layers[end].weight])
 """
 for i in 1:5
 	println(i)

@@ -22,17 +22,17 @@ include("discriminator.jl")
 include("test.jl")
 
 # Hyperparameters
-NUM_EPOCHS = 2000
+NUM_EPOCHS = 5000
 BATCH_SIZE = 1
 dis_lr = 0.0002f0
 gen_lr = 0.0002f0
 λ = 100.0f0 # L1 reconstruction Loss Weight
-NUM_EXAMPLES = 4  # Temporary for experimentation
+NUM_EXAMPLES = 1  # Temporary for experimentation
 VERBOSE_FREQUENCY = 1 # Verbose output after every 10 steps
 SAVE_FREQUENCY = 500
 SAMPLE_FREQUENCY = 5 # Sample every these mamy number of steps
 # Debugging
-G_STEPS = 1
+G_STEPS = 1 
 D_STEPS = 1
 resume = false
 inverse_order = true
@@ -67,9 +67,13 @@ function d_loss(gen,dis,a,b)
     """
     global dloss
     
-    fake_B = gen(a)
+    fake_B = gen(a).data
+    save_to_image(fake_B,"tem.jpg")
+    save_to_image(b,"out.jpg")
+    save_to_image(a,"a.jpg")
 
-    fake_AB = cat(fake_B,param(a) |> gpu,dims=3)
+    fake_AB = cat(fake_B,a,dims=3)
+    println(size(fake_AB))
 
     fake_prob = dis(fake_AB)
     println("Size Dis : $(size(fake_prob))")
@@ -77,21 +81,27 @@ function d_loss(gen,dis,a,b)
     # println("-------------DIS----------")
     # println("Fake prob : $fake_prob")
     
-    fake_labels = zeros(size(fake_prob)...) |> gpu
-    loss_D_fake = logitbinarycrossentropy(fake_prob,fake_labels)
+    fake_labels = param(zeros(size(fake_prob)...)) |> gpu
+    # loss_D_fake = logitbinarycrossentropy(fake_prob,fake_labels)
+    loss_D_fake = bce(fake_prob,fake_labels)
+
     # println("Fake Loss : $(mean(loss_D_fake))")
 
     real_AB =  cat(b,a,dims=3)
     real_prob = dis(real_AB)
     # println("Real Prob : $real_prob")
-    real_labels = ones(size(real_prob)...) |> gpu
+    real_labels = param(ones(size(real_prob)...)) |> gpu
 
-    loss_D_real = logitbinarycrossentropy(real_prob,real_labels)
+    # loss_D_real = logitbinarycrossentropy(real_prob,real_labels)
+    loss_D_real = bce(real_prob,real_labels)
     # println("Real Loss : $(mean(loss_D_real))")
 
+    println(mean(fake_prob))
+    println(mean(real_prob))
+    
     dloss = 0.5 * mean(loss_D_real.data .+ loss_D_fake.data)
     # convert(Float32,0.5) * mean(loss_D_real .+ loss_D_fake)
-    mean(loss_D_real .+ loss_D_fake)
+    return mean(loss_D_real .+ loss_D_fake)
 end
 
 function g_loss(gen,dis,a,b)
@@ -102,26 +112,33 @@ function g_loss(gen,dis,a,b)
     global gloss
     
     fake_B = gen(a)
+    save_to_image(fake_B.data,"tem1.jpg")
+    save_to_image(b,"out1.jpg")
+    save_to_image(a,"a1.jpg")
 
-    fake_AB = cat(fake_B,param(a) |> gpu,dims=3)
+    fake_AB = cat(fake_B,param(a),dims=3)
 
     start = time()
     fake_prob = dis(fake_AB)
+
+    println("Gen prob : $(mean(fake_prob))")
+     
     time_ = time() - start
     # println("fake_prob : $time_")
     
-    real_labels = ones(size(fake_prob)...) |> gpu
+    real_labels = param(ones(size(fake_prob)...)) |> gpu
     
     # println("---------------------GEN-----------------")
     # println("Fake Prob : $fake_prob")
-    loss_adv = mean(logitbinarycrossentropy(fake_prob,real_labels))
+    # loss_adv = mean(logitbinarycrossentropy(fake_prob,real_labels))
+    loss_adv = mean(bce(fake_prob,real_labels))
     println("Loss Adv : $loss_adv")
 
     loss_L1 = mean(abs.(fake_B .- b)) 
     println("Loss L1 : $loss_L1")
 
     gloss = loss_adv.data + λ*loss_L1.data
-    loss_adv + λ*loss_L1
+    return loss_adv # + λ*loss_L1
 end
 
 # Forward prop, backprop, optimise!
@@ -129,8 +146,12 @@ function train_step(gen,dis,X_A,X_B)
     global gloss
     global dloss
     start = time()
+    println(minimum(X_B))
+    println(maximum(X_B))
     X_A = norm(X_A)
     X_B = norm(X_B)
+    println(minimum(X_B))
+    println(maximum(X_B))
 
     for _ in 1:D_STEPS
 	   # zero_grad!(gen)
@@ -139,7 +160,7 @@ function train_step(gen,dis,X_A,X_B)
    	   gs = Tracker.gradient(() -> d_loss(gen,dis,X_A,X_B),params(dis))
 	   println("DIs Bottom Grad : $(mean(gs[dis.layers[1].weight]))")
 	   # println("Dis Top Grad : $(mean(gs[dis.layers[end-1].weight]))") 
-	   println("Dis Top Grad : $(mean(gs[dis.layers[end].weight]))")
+	   # println("Dis Top Grad : $(mean(gs[dis.layers[end].layers[end-2].weight]))")
 
        	   update!(opt_disc,params(dis),gs)
 	   # zero_grad!(gen)
@@ -148,9 +169,10 @@ function train_step(gen,dis,X_A,X_B)
 	   println("After Update")
 	   println("DIs Bottom Grad : $(mean(gs[dis.layers[1].weight]))")
 	   # println("Dis Top Grad : $(mean(gs[dis.layers[end-1].weight]))")
-           println("Dis Top Grad : $(mean(gs[dis.layers[end].weight]))")
+           # println("Dis Top Grad : $(mean(gs[dis.layers[end].layers[end-2].weight]))")
     end
 
+    for _ in 1:G_STEPS
     # zero_grad!(gen)
     # zero_grad!(dis)
     gs = Tracker.gradient(() -> g_loss(gen,dis,X_A,X_B),params(gen))  
@@ -166,6 +188,7 @@ function train_step(gen,dis,X_A,X_B)
     println("After Update")
     println("Gen bottom grad : $(mean(gs[gen.conv_blocks[1].layers[1].weight]))")
     println("Gen top grad : $(mean(gs[gen.up_blocks[end].layers[end].weight]))")
+    end
 end
 
 function save_weights(gen,dis)

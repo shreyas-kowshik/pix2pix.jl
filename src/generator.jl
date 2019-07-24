@@ -1,6 +1,7 @@
 # weight initialization
 function _random_normal(shape...)
     return map(Float32,rand(Normal(0,0.02),shape...))
+    # return Flux.glorot_uniform(shape...)
 end
 
 UNetConvBlock(in_chs, out_chs, kernel = (3, 3)) =

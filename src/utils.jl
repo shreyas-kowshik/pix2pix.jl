@@ -98,7 +98,7 @@ function save_to_image(var,name)
   cpu_out = cpu_out ./ maximum(cpu_out)
   s = size(cpu_out)
   img = colorview(RGB,reshape(cpu_out[:,:,:,1],3,s[1],s[2]))
-  save("../sample/$name",img)
+  save(string("./sample/",name),img)
 end
 
 function get_image_array(var)
