@@ -18,7 +18,7 @@ end
 
 function load_image(filename)
     img = load(filename)
-    img = random_jitter(img)
+    # img = random_jitter(img)
     img = Float32.(channelview(img))
 end
 

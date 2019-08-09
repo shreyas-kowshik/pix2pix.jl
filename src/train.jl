@@ -1,6 +1,6 @@
 using CUDAnative
 using CUDAnative:exp,log
-device!(1)
+device!(3)
 println("Device Selected")
 
 using Images,CuArrays,Flux
@@ -22,12 +22,12 @@ include("discriminator.jl")
 include("test.jl")
 
 # Hyperparameters
-NUM_EPOCHS = 5000
-BATCH_SIZE = 1
+NUM_EPOCHS = 2000
+BATCH_SIZE = 4
 dis_lr = 0.0002f0
 gen_lr = 0.0002f0
 λ = 100.0f0 # L1 reconstruction Loss Weight
-NUM_EXAMPLES = 1  # Temporary for experimentation
+NUM_EXAMPLES = 10  # Temporary for experimentation
 VERBOSE_FREQUENCY = 1 # Verbose output after every 10 steps
 SAVE_FREQUENCY = 500
 SAMPLE_FREQUENCY = 5 # Sample every these mamy number of steps
@@ -57,8 +57,8 @@ println(length(train_batches))
 println("Loaded Data")
 
 # Define Optimizers
-opt_gen = ADAM(gen_lr,(0.5,0.999))
-opt_disc = ADAM(dis_lr,(0.5,0.999))
+# opt_gen = ADAM(gen_lr,(0.5,0.999))
+# opt_disc = ADAM(dis_lr,(0.5,0.999))
 
 function d_loss(gen,dis,a,b)
     """
@@ -73,17 +73,17 @@ function d_loss(gen,dis,a,b)
     save_to_image(a,"a.jpg")
 
     fake_AB = cat(fake_B,a,dims=3)
-    println(size(fake_AB))
 
     fake_prob = dis(fake_AB)
+    println("Fake prob done ")
     println("Size Dis : $(size(fake_prob))")
     
     # println("-------------DIS----------")
     # println("Fake prob : $fake_prob")
     
     fake_labels = param(zeros(size(fake_prob)...)) |> gpu
-    # loss_D_fake = logitbinarycrossentropy(fake_prob,fake_labels)
-    loss_D_fake = bce(fake_prob,fake_labels)
+    loss_D_fake = logitbinarycrossentropy(fake_prob,fake_labels)
+    # loss_D_fake = mean(bce(fake_prob,fake_labels))
 
     # println("Fake Loss : $(mean(loss_D_fake))")
 
@@ -92,8 +92,8 @@ function d_loss(gen,dis,a,b)
     # println("Real Prob : $real_prob")
     real_labels = param(ones(size(real_prob)...)) |> gpu
 
-    # loss_D_real = logitbinarycrossentropy(real_prob,real_labels)
-    loss_D_real = bce(real_prob,real_labels)
+    loss_D_real = logitbinarycrossentropy(real_prob,real_labels)
+    # loss_D_real = mean(bce(real_prob,real_labels))
     # println("Real Loss : $(mean(loss_D_real))")
 
     println(mean(fake_prob))
@@ -101,7 +101,8 @@ function d_loss(gen,dis,a,b)
     
     dloss = 0.5 * mean(loss_D_real.data .+ loss_D_fake.data)
     # convert(Float32,0.5) * mean(loss_D_real .+ loss_D_fake)
-    return mean(loss_D_real .+ loss_D_fake)
+    return loss_D_real + loss_D_fake
+    # retrun loss
 end
 
 function g_loss(gen,dis,a,b)
@@ -116,7 +117,7 @@ function g_loss(gen,dis,a,b)
     save_to_image(b,"out1.jpg")
     save_to_image(a,"a1.jpg")
 
-    fake_AB = cat(fake_B,param(a),dims=3)
+    fake_AB = cat(fake_B,a,dims=3)
 
     start = time()
     fake_prob = dis(fake_AB)
@@ -130,19 +131,19 @@ function g_loss(gen,dis,a,b)
     
     # println("---------------------GEN-----------------")
     # println("Fake Prob : $fake_prob")
-    # loss_adv = mean(logitbinarycrossentropy(fake_prob,real_labels))
-    loss_adv = mean(bce(fake_prob,real_labels))
+    loss_adv = mean(logitbinarycrossentropy(fake_prob,real_labels))
+    # loss_adv = mean(bce(fake_prob,real_labels))
     println("Loss Adv : $loss_adv")
 
-    loss_L1 = mean(abs.(fake_B .- b)) 
+    loss_L1 = mean(abs.(fake_B .- b))
     println("Loss L1 : $loss_L1")
 
     gloss = loss_adv.data + λ*loss_L1.data
-    return loss_adv # + λ*loss_L1
+    return loss_adv # + 10.0f0 * loss_L1
 end
 
 # Forward prop, backprop, optimise!
-function train_step(gen,dis,X_A,X_B)
+function train_step(gen,dis,X_A,X_B,opt_gen,opt_disc)
     global gloss
     global dloss
     start = time()
@@ -155,39 +156,45 @@ function train_step(gen,dis,X_A,X_B)
 
     for _ in 1:D_STEPS
 	   # zero_grad!(gen)
-           # zero_grad!(dis)
+           zero_grad!(dis)
+	
+	   Flux.back!(d_loss(gen,dis,X_A,X_B))
+	   opt_disc()
 
-   	   gs = Tracker.gradient(() -> d_loss(gen,dis,X_A,X_B),params(dis))
-	   println("DIs Bottom Grad : $(mean(gs[dis.layers[1].weight]))")
+   	   # gs = Tracker.gradient(() -> d_loss(gen,dis,X_A,X_B),params(dis))
+	   # println("DIs Bottom Grad : $(mean(gs[dis.layers[1].weight]))")
 	   # println("Dis Top Grad : $(mean(gs[dis.layers[end-1].weight]))") 
 	   # println("Dis Top Grad : $(mean(gs[dis.layers[end].layers[end-2].weight]))")
 
-       	   update!(opt_disc,params(dis),gs)
+       	   # update!(opt_disc,params(dis),gs)
 	   # zero_grad!(gen)
            # zero_grad!(dis)
 
-	   println("After Update")
-	   println("DIs Bottom Grad : $(mean(gs[dis.layers[1].weight]))")
+	   # println("After Update")
+	   # println("DIs Bottom Grad : $(mean(gs[dis.layers[1].weight]))")
 	   # println("Dis Top Grad : $(mean(gs[dis.layers[end-1].weight]))")
            # println("Dis Top Grad : $(mean(gs[dis.layers[end].layers[end-2].weight]))")
     end
 
     for _ in 1:G_STEPS
-    # zero_grad!(gen)
+    zero_grad!(gen)
     # zero_grad!(dis)
-    gs = Tracker.gradient(() -> g_loss(gen,dis,X_A,X_B),params(gen))  
+    Flux.back!(g_loss(gen,dis,X_A,X_B))
+    opt_gen()
 
-    println("\n\n\n\n\n\n")
-    println("Gen bottom grad : $(mean(gs[gen.conv_blocks[1].layers[1].weight]))")
-    println("Gen top grad : $(mean(gs[gen.up_blocks[end].layers[end].weight]))")
+    # gs = Tracker.gradient(() -> g_loss(gen,dis,X_A,X_B),params(gen))  
+
+    # println("\n\n\n\n\n\n")
+    # println("Gen bottom grad : $(mean(gs[gen.conv_blocks[1].layers[1].weight]))")
+    #  println("Gen top grad : $(mean(gs[gen.up_blocks[end].layers[end].weight]))")
     
-    update!(opt_gen,params(gen),gs)
+    # update!(opt_gen,params(gen),gs)
     # zero_grad!(gen)
     # zero_grad!(dis)
 
-    println("After Update")
-    println("Gen bottom grad : $(mean(gs[gen.conv_blocks[1].layers[1].weight]))")
-    println("Gen top grad : $(mean(gs[gen.up_blocks[end].layers[end].weight]))")
+    # println("After Update")
+    # println("Gen bottom grad : $(mean(gs[gen.conv_blocks[1].layers[1].weight]))")
+    # println("Gen top grad : $(mean(gs[gen.up_blocks[end].layers[end].weight]))")
     end
 end
 
@@ -211,8 +218,8 @@ function train()
 
     # Define models
     if resume == true
-	@load "../weights/e2s/gen_500_next.bson" gen
-	@load "../weights/e2s/dis_500_next.bson" dis
+	@load "../weights/facades/gen.bson" gen
+	@load "../weights/facades/dis.bson" dis
 	gen = gen |> gpu
 	dis = dis |> gpu
 	println("Loaded Networks")
@@ -225,6 +232,10 @@ function train()
     println(length(params(dis)))
     println("Loaded Models")
 
+
+    opt_gen = ADAM(params(gen),gen_lr,β1 = 0.5)
+    opt_disc = ADAM(params(dis),dis_lr,β1 = 0.5)
+
     for epoch in 1:NUM_EPOCHS
         println("-----------Epoch : $epoch-----------")
 	
@@ -235,13 +246,15 @@ function train()
 	    global_step += 1
 	    
 	    if global_step % 7000 == 0
-		opt_gen.eta = opt_gen.eta / 1.0
-		opt_disc.eta = opt_disc.eta / 1.0
+		# opt_gen.eta = opt_gen.eta / 1.0
+		# opt_disc.eta = opt_disc.eta / 1.0
 	    end
 	      
 	    glob_start = time()
 	    start = time()
-		
+	
+	    print("Train batches ; ")
+	    println(length(train_batches[i]))
 	    if inverse_order == false
 	    	train_A,train_B = get_batch(train_batches[i],256)
 	    else
@@ -253,7 +266,7 @@ function train()
 #	    println("get_batch : $time_")
 	    # println(mean(train_B))
 	    st = time()
-            train_step(gen,dis,train_A |> gpu,train_B |> gpu)
+            train_step(gen,dis,train_A |> gpu,train_B |> gpu,opt_gen,opt_disc)
 	    time_ = time() - st
 	    # println("Train step : $time_")
 
