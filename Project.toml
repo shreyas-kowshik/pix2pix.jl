@@ -1,0 +1,4 @@
+name = "pix2pix"
+uuid = "06ce39cd-35c9-48fd-9613-8890f717c2a5"
+authors = ["Shreyas <shreyaskowshik@gmail.com>"]
+version = "0.1.0"
