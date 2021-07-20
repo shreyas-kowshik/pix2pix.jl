@@ -7,3 +7,12 @@
 * Train on subset of edges2shoes
 * Train on full edges2shoes
 * Discuss on deployment
+
+
+## Instructions To Run
+
+Download datasets as in :
+
+```
+
+```
