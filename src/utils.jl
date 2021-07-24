@@ -66,8 +66,8 @@ function denorm(x)
    (x .+ 1.0f0) ./ 2.0f0
 end
 
-function logitbinarycrossentropy(logŷ, y)
-    mean((1 .- y).*logŷ .- logσ.(logŷ))
-end
+# function logitbinarycrossentropy(logŷ, y)
+#     mean((1 .- y).*logŷ .- logσ.(logŷ))
+# end
 
 expand_dims(x,n::Int) = reshape(x,ones(Int64,n)...,size(x)...)

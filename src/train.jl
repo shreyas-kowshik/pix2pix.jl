@@ -14,22 +14,21 @@
 # # using BenchmarkTools
 
 # Hyperparameters
-device=cpu
-NUM_EPOCHS = 2000
-BATCH_SIZE = 4
-dis_lr = 0.0002f0
-gen_lr = 0.0002f0
-λ = 100.0f0 # L1 reconstruction Loss Weight
-NUM_EXAMPLES = 10  # Temporary for experimentation
-VERBOSE_FREQUENCY = 1 # Verbose output after every 10 steps
-SAVE_FREQUENCY = 500
-SAMPLE_FREQUENCY = 5 # Sample every these mamy number of steps
-DATASET_PATH = "facades/train/"
-IMG_SIZE=256
+# device=cpu
+# NUM_EPOCHS = 2000
+# BATCH_SIZE = 4
+# dis_lr = 0.0002f0
+# gen_lr = 0.0002f0
+# λ = 100.0f0 # L1 reconstruction Loss Weight
+# NUM_EXAMPLES = 10  # Temporary for experimentation
+# VERBOSE_FREQUENCY = 1 # Verbose output after every 10 steps
+# SAVE_FREQUENCY = 500
+# SAMPLE_FREQUENCY = 5 # Sample every these mamy number of steps
+# DATASET_PATH = "facades/train/"
+# IMG_SIZE=256
 
-# Data Loading
-data = load_dataset(DATASET_PATH,IMG_SIZE)[1:NUM_EXAMPLES] # data : list of filenames
-print("Loaded Data!")
+using Flux.Optimise: update!
+using Flux.Losses: logitbinarycrossentropy
 
 
 function discriminator_loss(real_logits, fake_logits, device)
