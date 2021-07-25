@@ -12,25 +12,18 @@ using Parameters
 using Printf
 using Random
 using CUDA
-
-# using Images
-# using Flux
-# using CUDA
-# using Random
-# using Statistics
-# using JLD
-# using Plots
-# using Parameters
+using Distributions
 
 include("utils.jl")
-inculde("train.jl")
-include("generator.jl")
-include("discriminator.jl")
+include("train.jl")
+include("unet.jl")
 
 export
 
 load_dataset, load_image, get_batch, make_minibatch,
 norm,
+
+UNet,
 
 train
 

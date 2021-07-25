@@ -1,23 +1,24 @@
 # weight initialization
 function _random_normal(shape...)
-    return map(Float32,rand(Normal(0,0.02),shape...))
+    return map(Float32, rand(Normal(0,0.02), shape...))
 end
 
 UNetConvBlock(in_chs, out_chs, kernel = (3, 3)) =
-    Chain(Conv(kernel, in_chs=>out_chs,pad = (1, 1);init=_random_normal),BatchNormWrap(out_chs)...,x->leakyrelu.(x,0.2))
+    Chain(Conv(kernel, in_chs=>out_chs,pad = (1, 1);init=_random_normal), BatchNorm(out_chs), x->leakyrelu.(x, 0.2f0))
 
-ConvDown(in_chs,out_chs,kernel = (4,4)) = Chain(Conv(kernel,in_chs=>out_chs,pad=(1,1),stride=(2,2);init=_random_normal),
-                                                BatchNormWrap(out_chs)...,
-						x->leakyrelu.(x,0.2)) # Convolution And Downsample
+ConvDown(in_chs,out_chs,kernel = (4,4)) = Chain(Conv(kernel, in_chs=>out_chs,pad=(1,1),stride=(2,2); init=_random_normal),
+                                                BatchNorm(out_chs),
+						                        x->leakyrelu.(x, 0.2f0)) # Convolution And Downsample
 
 struct UNetUpBlock
     upsample
 end
 
-@treelike UNetUpBlock
+# @treelike UNetUpBlock
+Flux.@functor UNetUpBlock
 
 UNetUpBlock(in_chs::Int, out_chs::Int; kernel = (3, 3), p = 0.5) = 
-    UNetUpBlock(Chain(x->leakyrelu.(x,0.2),ConvTranspose((2, 2), in_chs=>out_chs, stride=(2, 2);init=_random_normal),BatchNormWrap(out_chs)...,Dropout(p)))
+    UNetUpBlock(Chain(ConvTranspose((2, 2), in_chs=>out_chs, stride=(2, 2);init=_random_normal),BatchNorm(out_chs),Dropout(p)))
 
 function (u::UNetUpBlock)(x, bridge)
     x = u.upsample(x)
@@ -30,14 +31,15 @@ struct UNet
     up_blocks
 end
 
-@treelike UNet
+# @treelike UNet
+Flux.@functor UNet
 
 function UNet()
     conv_down_blocks = (ConvDown(64,64),ConvDown(128,128),ConvDown(256,256),ConvDown(512,512))
     conv_blocks = (UNetConvBlock(3, 64), UNetConvBlock(64, 128), UNetConvBlock(128, 256),
                    UNetConvBlock(256, 512), UNetConvBlock(512, 1024), UNetConvBlock(1024, 1024))
     up_blocks = (UNetUpBlock(1024, 512), UNetUpBlock(1024, 256), UNetUpBlock(512, 128),
-                 UNetUpBlock(256, 64,p = 0.0), Chain(x->leakyrelu.(x,0.2),Conv((1, 1), 128=>3;init=_random_normal)))
+                 UNetUpBlock(256, 64,p = 0.0), Chain(Conv((1, 1), 128=>3;init=_random_normal)))
     UNet(conv_down_blocks, conv_blocks, up_blocks)
 end
 
@@ -57,4 +59,3 @@ function (u::UNet)(x)
     end
     tanh.(u.up_blocks[end](up_x))
 end
-

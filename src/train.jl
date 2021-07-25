@@ -32,21 +32,21 @@ using Flux.Losses: logitbinarycrossentropy
 
 
 function discriminator_loss(real_logits, fake_logits, device)
-    real_labels = param(ones(size(real_logits)...)) |> device
-    real_loss = logitbinarycrossentropy.(real_logits, real_labels)
+    real_labels = Float32.(ones(size(real_logits)...)) |> device
+    real_loss = mean(logitbinarycrossentropy.(real_logits, real_labels))
 
-    fake_labels = param(zeros(size(fake_logits)...)) |> device
-    fake_loss = logitbinarycrossentropy.(fake_logits, fake_labels)
+    fake_labels = Float32.(zeros(size(fake_logits)...)) |> device
+    fake_loss = mean(logitbinarycrossentropy.(fake_logits, fake_labels))
 
-    0.5 * mean(real_loss + fake_loss)
+    0.5f0 * (real_loss .+ fake_loss)
 end
 
 function generator_loss(fake_output, fake_logits, domain_images, device; λ = 100.0f0)
-    labels = param(ones(size(fake_logits)...)) |> device
-    adv_loss = logitbinarycrossentropy.(fake_logits, real_labels)
-    l1_loss = abs.(fake_output - domain_images)
+    labels = Float32.(ones(size(fake_logits)...)) |> device
+    adv_loss = mean(logitbinarycrossentropy.(fake_logits, labels))
+    l1_loss = mean(abs.(fake_output - domain_images))
 
-    mean(adv_loss + (λ .* l1_loss))
+    adv_loss + (λ * l1_loss)
 end
 
 function train_discriminator!(x, y, gen, discr, opt, device)
@@ -63,7 +63,7 @@ function train_discriminator!(x, y, gen, discr, opt, device)
     ps = Flux.params(discr)
     # Taking gradient
     loss, back = Flux.pullback(ps) do
-        discriminator_loss(fake_logits, real_logits, device))
+        discriminator_loss(fake_logits, real_logits, device)
     end
     grad = back(1f0)
     update!(opt, ps, grad)
@@ -98,32 +98,38 @@ function train_step(x, y, gen, discr, opt_gen, opt_discr, device; D_STEPS=1, G_S
     x = norm(x)
     y = norm(y)
 
+    discr_loss = -1.0f0
+    gen_loss = -1.0f0
+
     for _ in 1:D_STEPS
-        discr_loss = train_discriminator!(x, y, gen, discr, opt, device)
+        discr_loss = train_discriminator!(x, y, gen, discr, opt_discr, device)
     end
 
     for _ in 1:G_STEPS
-        gen_loss = train_generator!(x, y, gen, discr, opt, device)
+        gen_loss = train_generator!(x, y, gen, discr, opt_gen, device)
     end
 
     return (discr_loss, gen_loss)
 end
 
-function train(data, gen, discr, opt_gen, opt_discr; hparams)
+function train(data, gen, discr; hparams)
     """
     data : list of filenames containing `train` images
            `get_batch(data[i])` should load the files
     """
     # Define Optimizers
     opt_gen = ADAM(hparams.gen_lr, (0.5, 0.999))
-    opt_disc = ADAM(hparam.discr_lr, (0.5, 0.999))
+    opt_discr = ADAM(hparams.discr_lr, (0.5, 0.999))
 
     # Partition into minibatches
     mb_idxs = partition(shuffle!(collect(1:length(data))), hparams.batch_size)
     train_batches = [data[i] for i in mb_idxs]
 
+    step = 0
     for epoch in 1:hparams.epochs
         for i in 1:length(train_batches)
+            step += 1 # For tracking/logging
+
             x, y = get_batch(train_batches[i], hparams.img_size)
 
             x = x |> hparams.device
@@ -131,8 +137,17 @@ function train(data, gen, discr, opt_gen, opt_discr; hparams)
 
             (discr_loss, gen_loss) = train_step(x, y, gen, discr, opt_gen, opt_discr, hparams.device; hparams.D_STEPS, hparams.G_STEPS)
 
+            # Verbose Print
+            if step % hparams.verbose_freq == 0
+                println("Generator Loss : $(gen_loss)")
+                println("Discriminator Loss : $(discr_loss)")
+                println("===================")
+            end
+
             # Do some logging
             # Do some saving
+        end
+    end
 
     return (gen, discr)
 end

@@ -11,3 +11,8 @@ model = Chain(
     BatchNorm(16),
     x->leakyrelu.(x, 0.2)
 )
+
+x = ones(10, 10, 3, 2)
+model = model |> gpu
+x = x |> gpu
+y = model(x)
